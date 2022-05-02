@@ -8,11 +8,14 @@ const cors = require("cors");
 const streamApp = require("./stream");
 const scheduleApp = require("./schedule");
 mongoose
-  .connect(process.env.DB_URL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useCreateIndex: true,
-  })
+  .connect(
+    "mongodb+srv://admin1:glance123@cluster0.ftdmm.mongodb.net/myFirstDatabase?retryWrites=true&w=majority",
+    {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      useCreateIndex: true,
+    }
+  )
   .then(() => {
     console.log("db connected");
   });
