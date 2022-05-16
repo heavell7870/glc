@@ -5,7 +5,7 @@ const PSchedule = new mongoose.Schema(
     id: { type: String, required: true, unique: true },
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
-    webPeekLink: { type: String, required: true },
+    description: { type: String, required: true },
     tilte: { type: String, required: true },
     glance_id: { type: String, required: true },
     game: { type: String, required: true },

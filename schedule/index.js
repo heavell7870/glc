@@ -6,7 +6,9 @@ const User = require("../user/model/user");
 // const { getIcalObjectInstance } = require("./helper");
 // const { sendemail } = require("./sendMail");
 // const { default: axios } = require("axios");
+const { Expo } = require("expo-server-sdk");
 
+const expo = new Expo();
 const scheduleApp = express.Router();
 
 scheduleApp.use(express.json());
@@ -16,7 +18,7 @@ scheduleApp.post("/", authenticateToken, async (req, res) => {
     schedule_id,
     startTime,
     endTime,
-    webPeekLink,
+    description,
     tilte,
     glance_id,
     game,
@@ -49,7 +51,7 @@ scheduleApp.post("/", authenticateToken, async (req, res) => {
       id: schedule_id + "-" + channel_id + "-" + game,
       startTime: startTime,
       endTime: endTime,
-      webPeekLink,
+      description,
       tilte,
       schedule_id,
       glance_id,
@@ -64,6 +66,40 @@ scheduleApp.post("/", authenticateToken, async (req, res) => {
       created: new Date(),
       responded: false,
     });
+
+    let messages = [];
+
+    const streamer = await User.findOne({ channel_id }).lean();
+    console.log(streamer);
+
+    if (!Expo.isExpoPushToken(streamer.token)) {
+      console.error(
+        `Push token ${streamer.token} is not a valid Expo push token`
+      );
+    } else {
+      messages.push({
+        to: streamer.token,
+        sound: "default",
+        body: `${streamer.username} please respond on latest schedule`,
+        title: "Schedule Updated 📆",
+        //data: { url: `https://myaroundly.com/post/${post_id}` },
+      });
+    }
+
+    let chunks = expo.chunkPushNotifications(messages);
+    let tickets = [];
+
+    (async () => {
+      for (let chunk of chunks) {
+        try {
+          let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log(ticketChunk);
+          tickets.push(...ticketChunk);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    })();
 
     const newSchedule = await Schedule.find({ schedule_id })
       .sort({ created: -1 })
@@ -119,7 +155,7 @@ scheduleApp.get("/stream/my", authenticateToken, async (req, res) => {
 });
 
 scheduleApp.post("/stream/respond", authenticateToken, async (req, res) => {
-  const { data, id } = req.body;
+  const { data, id, name } = req.body;
   try {
     await Schedule.updateOne(
       { id },
@@ -132,6 +168,43 @@ scheduleApp.post("/stream/respond", authenticateToken, async (req, res) => {
       },
       { upsert: false }
     );
+
+    let messages = [];
+
+    const presenter = await User.find({ role: "presenter" }).lean();
+    console.log(presenter);
+
+    presenter.forEach((item) => {
+      if (!Expo.isExpoPushToken(item.token)) {
+        console.error(
+          `Push token ${item.token} is not a valid Expo push token`
+        );
+      } else {
+        messages.push({
+          to: item.token,
+          sound: "default",
+          body: `${name} responded on latest schedule`,
+          title: "One Response 📆",
+          //data: { url: `https://myaroundly.com/post/${post_id}` },
+        });
+      }
+    });
+
+    let chunks = expo.chunkPushNotifications(messages);
+    let tickets = [];
+
+    (async () => {
+      for (let chunk of chunks) {
+        try {
+          let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log(ticketChunk);
+          tickets.push(...ticketChunk);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    })();
+
     return res.json({ status: "ok", msg: "Updated" });
   } catch (error) {
     console.log(error);
@@ -141,32 +214,21 @@ scheduleApp.post("/stream/respond", authenticateToken, async (req, res) => {
 
 scheduleApp.get("/", async (req, res) => {
   try {
-    const data = await Schedule.aggregate([
-      { $match: { status: "active" } },
-      {
-        $group: {
-          _id: "$schedule_id",
-          id: { $first: "$id" },
-          startTime: { $first: "$startTime" },
-          endTime: { $first: "$endTime" },
-          webPeekLink: { $first: "$webPeekLink" },
-          title: { $first: "$title" },
-          schedule_id: { $first: "$schedule_id" },
-          glance_id: { $first: "$glance_id" },
-          game: { $first: "$game" },
-          name_of_the_influencer: { $first: "$name_of_the_influencer" },
-          duration: { $first: "$duration" },
-          availablity: { $first: "$availablity" },
-          from: { $first: "$from" },
-          to: { $first: "$to" },
-          status: { $first: "$status" },
-          created: { $first: "$created" },
-          responded: { $first: "$responded" },
-          responded_at: { $first: "$responded_at" },
-        },
-      },
-    ]);
-    return res.json({ status: "ok", data });
+    const data = await Schedule.find({ status: "active" }).sort({
+      created: -1,
+    });
+
+    const arr = [];
+
+    data.forEach((item) => {
+      arr.push(item.schedule_id);
+    });
+    function uniq(a) {
+      return a.sort().filter(function (item, pos, ary) {
+        return !pos || item != ary[pos - 1];
+      });
+    }
+    return res.json({ status: "ok", data: uniq(arr) });
   } catch (error) {
     console.log(error);
     return res.json({ status: "ok", msg: "Server error" });
