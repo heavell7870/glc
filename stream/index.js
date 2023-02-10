@@ -199,7 +199,16 @@ streamApp.get("/live/data", async (req, res) => {
             end_time.getTime() + item.durationInSeconds * 1000
           );
           if (start_time < current_time && end_time > current_time) {
-            arr.push(item);
+            arr.push({
+              slug: item.slugId,
+              title: item.title,
+              startTime: item.startTime,
+              summary: item.summary,
+              poster: item.poster,
+              creatorImage: item.hostDetails.profileImage,
+              creatorName: item.hostDetails.name,
+              live_url: `https://live-cdn.glance.com/${item?.hostDetails?.channel?.toLowerCase()}/manifest.m3u8`,
+            });
           }
         }
       });
