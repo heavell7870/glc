@@ -182,4 +182,32 @@ streamApp.get("/upcoming/data", async (req, res) => {
     return res.json({ msg: "Internal error", status: "failed" });
   }
 });
+
+streamApp.get("/live/data", async (req, res) => {
+  try {
+    const { data } = await axios.get(
+      "https://cdn.live.glance.com/v2/public-shows/summary"
+    );
+    const arr = [];
+    if (data.today) {
+      data.today.forEach((item) => {
+        if (item.meta.source === "gaming") {
+          var start_time = new Date(item.startTime);
+          var current_time = new Date();
+          var end_time = new Date(item.startTime);
+          end_time = new Date(
+            end_time.getTime() + item.durationInSeconds * 1000
+          );
+          if (start_time < current_time && end_time > current_time) {
+            arr.push(item);
+          }
+        }
+      });
+    }
+    return res.status(200).json({ data: arr, status: "ok" });
+  } catch (error) {
+    console.log(error);
+    return res.json({ msg: "Internal error", status: "failed" });
+  }
+});
 module.exports = streamApp;
